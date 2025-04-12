@@ -1,0 +1,31 @@
+{
+    "name": "My Test Extension",
+    "version": "1.0",
+    "manifest_version": 3,
+    "description": "A minimal test to see console.log from content script",
+    
+    "action": {
+      "default_popup": "popup.html",
+      "default_icon": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+      }
+    },
+
+    "permissions": [
+      "activeTab",
+      "storage"
+    ],
+  
+    "content_scripts": [
+      {
+        "matches": [
+          "https://chatgpt.com/*"
+        ],
+        "js": ["contentScript.js"]
+      }
+    ]
+
+  }
+  
