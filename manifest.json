@@ -1,9 +1,15 @@
 {
-  "name": "My Test Extension",
-  "version": "1.0",
+  "name": "ChatGPT Booster",
+  "version": "1.0.0",
   "manifest_version": 3,
-  "description": "A minimal test to see console.log from content script",
+  "description": "Enhance your ChatGPT experience: auto-hide old messages, copy LaTeX easily, and more smart tools.",
   "default_locale": "en",
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
 
   "action": {
     "default_popup": "popup.html",
@@ -15,15 +21,14 @@
   },
 
   "permissions": [
+    "storage",
     "activeTab",
-    "storage"
+    "scripting"
   ],
 
   "content_scripts": [
     {
-      "matches": [
-        "https://chatgpt.com/*"
-      ],
+      "matches": ["https://chatgpt.com/*"],
       "js": ["contentScript.js"]
     }
   ],
