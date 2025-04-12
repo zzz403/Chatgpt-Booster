@@ -1,0 +1,29 @@
+{
+    "auto_hide_btn_text": {
+        "message": "Activate Auto Hide"
+    },
+    "latex_copy_success": {
+        "message": "Copied LaTeX to Clipboard!"
+    },
+    "toggle_hide_text": {
+        "message": "[Collapse Reply]"
+    },
+    "toggle_show_text": {
+        "message": "[Expand Reply]"
+    },
+    "popup_title": {
+        "message": "ChatGPT Booster Settings"
+    },
+    "popup_label_max_msgs": {
+        "message": "Max visible messages:"
+    },
+    "popup_placeholder": {
+        "message": "e.g. 10"
+    },
+    "popup_save": {
+        "message": "Save"
+    },
+    "popup_saved": {
+        "message": "Saved max messages: "
+    }
+}

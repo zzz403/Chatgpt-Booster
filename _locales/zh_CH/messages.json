@@ -1,0 +1,29 @@
+{
+    "auto_hide_btn_text": {
+        "message": "激活自动隐藏"
+    },
+    "latex_copy_success": {
+        "message": "已复制 Markdown 公式！"
+    },
+    "toggle_hide_text": {
+        "message": "[折叠回复]"
+    },
+    "toggle_show_text": {
+        "message": "[展开回复]"
+    },
+    "popup_title": {
+        "message": "ChatGPT Booster 设置"
+    },
+    "popup_label_max_msgs": {
+        "message": "最大保留消息数："
+    },
+    "popup_placeholder": {
+        "message": "例如 10"
+    },
+    "popup_save": {
+        "message": "保存"
+    },
+    "popup_saved": {
+        "message": "已保存最大消息数："
+    }
+}

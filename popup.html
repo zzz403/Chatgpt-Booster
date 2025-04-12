@@ -1,18 +1,69 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8"/>
   <title>ChatGPT Booster Settings</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      width: 260px;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      font-size: 14px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      background: #ececec;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #ddd;
+    }
+  </style>
 </head>
+
+
 <body>
-  <h1>ChatGPT Booster 设置</h1>
+  <h1 id="title"></h1>
+
   <div>
-    <label for="maxMsgsInput">最大保留消息数：</label>
-    <input type="number" id="maxMsgsInput" placeholder="例如 10">
-    <button id="saveBtn">保存</button>
+    <label id="label-max-msgs" for="maxMsgsInput"></label>
+    <input type="number" id="maxMsgsInput" placeholder="">
   </div>
 
-  <!-- 用 script 引入 popup.js -->
+  <div>
+    <label id="label-language">Language:</label>
+    <select id="langSelect">
+      <option value="en">English</option>
+      <option value="zh">简体中文</option>
+    </select>
+  </div>
+
+  <button id="saveBtn"></button>
+
+
   <script src="popup.js"></script>
 </body>
+
 </html>

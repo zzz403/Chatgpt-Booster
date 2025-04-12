@@ -3,6 +3,7 @@
     "version": "1.0",
     "manifest_version": 3,
     "description": "A minimal test to see console.log from content script",
+    "default_locale": "en",
     
     "action": {
       "default_popup": "popup.html",
