@@ -1,55 +1,96 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8"/>
   <title>ChatGPT Booster Settings</title>
   <style>
+    :root {
+      /* 你可根据需要更换这些主色调 */
+      --bg-color: #ffffff;
+      --text-color: #202123;        /* ChatGPT 默认深色文字 */
+      --border-color: #d1d5db;
+      --primary-color: #10a37f;     /* ChatGPT 标志性的绿色 */
+      --hover-bg-color: #f7f7f8;
+      --radius: 6px;
+    }
+    
     body {
-      font-family: sans-serif;
-      padding: 20px;
-      width: 260px;
+      margin: 0;
+      padding: 16px;
+      width: 300px; /* 你可以根据扩展弹窗需要自定义宽度 */
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
     }
 
     h1 {
-      font-size: 18px;
-      margin-bottom: 15px;
+      font-size: 1.125rem; /* 约等于 18px */
+      font-weight: 600;
+      margin-bottom: 16px;
     }
 
     label {
       display: block;
-      margin: 8px 0 4px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-weight: 500; /* 半粗，让它更清晰一点 */
     }
 
-    input, select, button {
+    input, select {
       width: 100%;
-      padding: 6px 10px;
-      margin-bottom: 12px;
+      padding: 8px;
+      margin-bottom: 16px;
       font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      color: var(--text-color);
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      box-sizing: border-box;
     }
 
     button {
-      background: #ececec;
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: var(--primary-color);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #0e8f6f; /* 悬停时稍微变深 */
     }
 
-    button:hover {
-      background: #ddd;
+    /* Toast 的简单样式 */
+    .booster-toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100%);
+      background-color: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    .booster-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
     }
   </style>
 </head>
-
-
 <body>
-  <h1 id="title"></h1>
+  <h1 id="title">ChatGPT Booster Settings</h1>
 
   <div>
-    <label id="label-max-msgs" for="maxMsgsInput"></label>
-    <input type="number" id="maxMsgsInput" placeholder="">
+    <label id="label-max-msgs" for="maxMsgsInput">Max visible messages:</label>
+    <input type="number" id="maxMsgsInput" placeholder="10">
   </div>
 
   <div>
@@ -60,10 +101,8 @@
     </select>
   </div>
 
-  <button id="saveBtn"></button>
-
+  <button id="saveBtn">Save</button>
 
   <script src="popup.js"></script>
 </body>
-
 </html>

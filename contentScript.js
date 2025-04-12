@@ -64,10 +64,14 @@ function showToast(msg) {
 // 监听点击三点按钮
 const observer = new MutationObserver(() => {
   const menu = document.querySelector('div[role="menu"]');
-  if (!menu || menu.querySelector('.booster-auto-hide-btn')) return;
+  if (!menu) return;
 
+  // 已经加过就不加了
+  if (menu.querySelector('.booster-auto-hide-btn')) return;
+
+  // 只处理聊天三点menu（通过data-testid）
   const isChatOptionMenu = menu.querySelector('[data-testid="delete-chat-menu-item"]');
-  if (!isChatOptionMenu) return;  // 不是聊天的 menu，继续观察别人
+  if (!isChatOptionMenu) return;
 
   const template = menu.querySelector('div[role="menuitem"]');
   const dividerOrigin = menu.querySelector('div[class*="border"]');
@@ -75,7 +79,17 @@ const observer = new MutationObserver(() => {
 
   const divider = dividerOrigin.cloneNode(true);
   const newItem = template.cloneNode(true);
-  newItem.textContent = i18n('auto_hide_btn_text');
+
+  newItem.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <img src="${chrome.runtime.getURL('icons/bolt.svg')}" 
+          style="width: 18px; height: 18px;">
+      ${i18n('auto_hide_btn_text')}
+    </div>
+  `;
+
+
+
   newItem.classList.add('booster-auto-hide-btn');
 
   newItem.addEventListener('click', (e) => {
@@ -87,10 +101,7 @@ const observer = new MutationObserver(() => {
   menu.appendChild(divider);
   menu.appendChild(newItem);
 
-  console.log('[Booster] 成功注入按钮，断开observer监听！');
-
-  // 注入后永久断开，不再监听
-  observer.disconnect();
+  console.log('[Booster] Auto Hide 按钮插入成功！');
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
