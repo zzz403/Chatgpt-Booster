@@ -98,7 +98,10 @@ const observer = new MutationObserver(() => {
     showToast('自动隐藏已激活！');
   });
 
-  menu.appendChild(divider);
+  if (divider){
+    menu.appendChild(divider);
+  }
+  
   menu.appendChild(newItem);
 
   console.log('[Booster] Auto Hide 按钮插入成功！');
