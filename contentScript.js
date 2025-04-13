@@ -64,20 +64,31 @@ function showToast(msg) {
 // 监听点击三点按钮
 const observer = new MutationObserver(() => {
   const menu = document.querySelector('div[role="menu"]');
-  if (!menu) return;
+  if (!menu){
+    console.log('没有找到菜单，退出');
+    return;
+  };
 
   // 已经加过就不加了
-  if (menu.querySelector('.booster-auto-hide-btn')) return;
+  if (menu.querySelector('.booster-auto-hide-btn')){
+    console.log('已经插入过按钮，退出');
+    return;
+  };
 
   // 只处理聊天三点menu（通过data-testid）
   const isChatOptionMenu = menu.querySelector('[data-testid="delete-chat-menu-item"]');
-  if (!isChatOptionMenu) return;
+  if (!isChatOptionMenu){
+    console.log('不是聊天选项菜单，退出');
+    return;
+  };
 
   const template = menu.querySelector('div[role="menuitem"]');
   const dividerOrigin = menu.querySelector('div[class*="border"]');
-  if (!template || !dividerOrigin) return;
-
-  const divider = dividerOrigin.cloneNode(true);
+  if (!template){
+    console.log('没有找到菜单项，退出');
+    return;
+  }
+  
   const newItem = template.cloneNode(true);
 
   newItem.innerHTML = `
@@ -98,7 +109,8 @@ const observer = new MutationObserver(() => {
     showToast('自动隐藏已激活！');
   });
 
-  if (divider){
+  if (dividerOrigin){
+    const divider = dividerOrigin.cloneNode(true);
     menu.appendChild(divider);
   }
   
