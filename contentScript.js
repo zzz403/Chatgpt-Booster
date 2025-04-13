@@ -99,8 +99,6 @@ const observer = new MutationObserver(() => {
     </div>
   `;
 
-
-
   newItem.classList.add('booster-auto-hide-btn');
 
   newItem.addEventListener('click', (e) => {
@@ -247,16 +245,32 @@ function setupAutoHide() {
     }).observe(document.body, { childList: true, subtree: true });
 
     scrollContainer.addEventListener('scroll', () => {
+      // 当滚动到距离顶部较近时触发
       if (scrollContainer.scrollTop <= 100) {
+        // 先检查是否还有隐藏内容
         const hidden = document.querySelectorAll('.booster-hidden');
-        const restoreNum = Math.min(RESTORE_COUNT, hidden.length);
-        const anchor = [...document.querySelectorAll("article[data-testid^='conversation-turn-']")].find(m => !m.classList.contains('booster-hidden'));
+        if (hidden.length === 0) return; // 如果没有隐藏的消息，则直接退出
 
+        // 从隐藏的消息中取出可恢复数量（这里 RESTORE_COUNT 定义每次加载的数量）
+        const restoreNum = Math.min(RESTORE_COUNT, hidden.length);
+        if (restoreNum <= 0) return; // 如果没有需要恢复的，也退出
+
+        // 此处选择“锚点”为第一个仍然可见的消息（也可以根据实际需要选择其他锚点）
+        const anchor = [...document.querySelectorAll("article[data-testid^='conversation-turn-']")]
+                         .find(m => !m.classList.contains('booster-hidden'));
+
+        // 这里从数组的末尾（即离当前视区最近的隐藏消息）恢复 restoreNum 条
         for (let i = hidden.length - 1; i >= hidden.length - restoreNum; i--) {
           hidden[i].classList.remove('booster-hidden', 'booster-auto-hidden');
         }
         restoredCount += restoreNum;
-        setTimeout(() => anchor?.scrollIntoView({ block: 'start', behavior: 'auto' }), 0);
+
+        // 如果有锚点，再滚动到该锚点位置，平滑调整界面，防止画面抖动
+        if (anchor) {
+          setTimeout(() => {
+            anchor.scrollIntoView({ block: 'start', behavior: 'auto' });
+          }, 0);
+        }
       }
     });
   });
