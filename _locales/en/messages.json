@@ -25,5 +25,8 @@
     },
     "popup_saved": {
         "message": "Saved max messages: "
+    },
+    "save_to_pdf_btn_text": {
+        "message": "Save to PDF"
     }
 }

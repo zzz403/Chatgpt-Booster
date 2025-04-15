@@ -64,10 +64,7 @@ function showToast(msg) {
 // 监听点击三点按钮
 const observer = new MutationObserver(() => {
   const menu = document.querySelector('div[role="menu"]');
-  if (!menu){
-    console.log('没有找到菜单，退出');
-    return;
-  };
+  if (!menu) return;
 
   // 已经加过就不加了
   if (menu.querySelector('.booster-auto-hide-btn')){
@@ -77,21 +74,15 @@ const observer = new MutationObserver(() => {
 
   // 只处理聊天三点menu（通过data-testid）
   const isChatOptionMenu = menu.querySelector('[data-testid="delete-chat-menu-item"]');
-  if (!isChatOptionMenu){
-    console.log('不是聊天选项菜单，退出');
-    return;
-  };
+  if (!isChatOptionMenu) return;
 
   const template = menu.querySelector('div[role="menuitem"]');
   const dividerOrigin = menu.querySelector('div[class*="border"]');
-  if (!template){
-    console.log('没有找到菜单项，退出');
-    return;
-  }
+  if (!template) return;
   
-  const newItem = template.cloneNode(true);
+  const booster_start_btn = template.cloneNode(true);
 
-  newItem.innerHTML = `
+  booster_start_btn.innerHTML = `
     <div style="display: flex; align-items: center; gap: 8px;">
       <img src="${chrome.runtime.getURL('icons/bolt.svg')}" 
           style="width: 18px; height: 18px;">
@@ -99,12 +90,37 @@ const observer = new MutationObserver(() => {
     </div>
   `;
 
-  newItem.classList.add('booster-auto-hide-btn');
+  booster_start_btn.classList.add('booster-auto-hide-btn');
 
-  newItem.addEventListener('click', (e) => {
+  booster_start_btn.addEventListener('click', (e) => {
     e.stopPropagation();
     setupAutoHide();
     showToast('自动隐藏已激活！');
+  });
+
+  save_to_pdf_btn = template.cloneNode(true);
+
+  save_to_pdf_btn.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <img src="${chrome.runtime.getURL('icons/pdf.svg')}" 
+          style="width: 18px; height: 18px;">
+      ${i18n('save_to_pdf_btn_text')}
+    </div>
+  `;
+
+  save_to_pdf_btn.classList.add('booster-save-to-pdf-btn');
+
+  save_to_pdf_btn.addEventListener('click', (e) => {
+    loadHtml2Pdf()
+    .then(() => {
+      exportAllGPTChatsAsPDF();
+      showToast('PDF 导出中...');
+    })
+    .catch(err => {
+      console.error(err);
+      alert('PDF 导出失败！');
+    });
+
   });
 
   if (dividerOrigin){
@@ -112,7 +128,8 @@ const observer = new MutationObserver(() => {
     menu.appendChild(divider);
   }
   
-  menu.appendChild(newItem);
+  menu.appendChild(booster_start_btn);
+  menu.appendChild(save_to_pdf_btn);
 
   console.log('[Booster] Auto Hide 按钮插入成功！');
 });
@@ -274,4 +291,321 @@ function setupAutoHide() {
       }
     });
   });
+}
+
+// ===== prompt区替换功能 =====
+function waitForPromptArea(callback) {
+  const promptArea = document.getElementById("prompt-textarea");
+  if (promptArea) {
+    callback(promptArea);
+    return;
+  }
+  
+  const observer = new MutationObserver((mutations, obs) => {
+    const promptArea = document.getElementById("prompt-textarea");
+    if (promptArea) {
+      obs.disconnect();
+      callback(promptArea);
+    }
+  });
+  
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+waitForPromptArea((promptArea) => {
+  console.log("=== Prompt area found ===");
+
+  // 定义触发词与预设文本（要替换成的完整文本）
+  const trigger = "#textbooktranslation";
+  const presetContent = [
+    "请把这段英文教材内容翻译成中文，要求：关键术语、专有名词、技术词 保留英文",
+    "",
+    "解释、连接、举例 全部中文",
+    "",
+    "保持学术风格，但更容易理解"
+  ].join("\n");
+
+  // 辅助函数：将光标移到内容末尾（用于 contenteditable）
+  function placeCaretAtEnd(el) {
+    el.focus();
+    if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
+  // 辅助函数：显示提示框
+  function showSuggestionBox(message) {
+    let suggestionBox = document.getElementById('trigger-suggestion-box');
+    if (!suggestionBox) {
+      suggestionBox = document.createElement('div');
+      suggestionBox.id = 'trigger-suggestion-box';
+      suggestionBox.className = 'trigger-suggestion-box';
+      // 改进后的样式
+      suggestionBox.style.position = 'absolute';
+      suggestionBox.style.background = 'rgba(255, 255, 255, 0.95)'; // 半透明白色背景
+      suggestionBox.style.padding = '6px 10px';
+      suggestionBox.style.borderRadius = '6px';
+      suggestionBox.style.fontSize = '13px';
+      suggestionBox.style.color = '#444';
+      suggestionBox.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'; // 柔和阴影
+      suggestionBox.style.zIndex = '1000';
+      // 初始透明度和位移，用于淡入动画
+      suggestionBox.style.opacity = '0';
+      suggestionBox.style.transform = 'translateY(5px)';
+      suggestionBox.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      document.body.appendChild(suggestionBox);
+    }
+    suggestionBox.innerText = message;
+    // 简单定位在 promptArea 下方
+    const rect = promptArea.getBoundingClientRect();
+    suggestionBox.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+    suggestionBox.style.left = (rect.left + window.scrollX) + 'px';
+    suggestionBox.style.display = 'block';
+    // 使用 requestAnimationFrame 触发淡入动画
+    requestAnimationFrame(() => {
+      suggestionBox.style.opacity = '1';
+      suggestionBox.style.transform = 'translateY(0)';
+    });
+  }
+  
+
+  // 辅助函数：隐藏提示框
+  function hideSuggestionBox() {
+    const suggestionBox = document.getElementById('trigger-suggestion-box');
+    if (suggestionBox) {
+      suggestionBox.style.display = 'none';
+    }
+  }
+
+  // 辅助函数：判断文本末尾是否包含触发词
+  function isTriggerAtEnd(text, trigger) {
+    return text.trim().endsWith(trigger);
+  }
+
+  // 监听输入事件——每次输入都检测是否在文本末尾出现触发词
+  promptArea.addEventListener("input", () => {
+    const currentText = promptArea.innerText;
+    if (isTriggerAtEnd(currentText, trigger)) {
+      showSuggestionBox("按下空格将替换为预设文本");
+    } else {
+      hideSuggestionBox();
+    }
+  });
+
+  // 监听键盘事件，当提示框显示时，根据按键决定是否执行替换
+  promptArea.addEventListener("keydown", (event) => {
+    const suggestionBox = document.getElementById('trigger-suggestion-box');
+    if (suggestionBox && suggestionBox.style.display === 'block') {
+      if (event.key === " ") {
+        // 用户按下空格，确认替换
+        event.preventDefault();  // 阻止默认空格行为
+        const fullText = promptArea.innerText;
+        const idx = fullText.lastIndexOf(trigger);
+        if (idx !== -1) {
+          const before = fullText.substring(0, idx);
+          promptArea.innerText = before + presetContent;
+          hideSuggestionBox();
+          placeCaretAtEnd(promptArea);
+        }
+      } else {
+        // 如果按下的不是空格，则取消提示框（不做替换）
+        hideSuggestionBox();
+      }
+    }
+  });
+});
+
+
+function loadHtml2Pdf() {
+  return new Promise((resolve, reject) => {
+    if (window.html2pdf) {
+      resolve(window.html2pdf);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('libs/html2pdf.bundle.min.js');
+
+    script.onload = () => {
+      if (window.html2pdf) {
+        console.log('html2pdf loaded');
+        resolve(window.html2pdf);
+      } else if (typeof html2pdf !== 'undefined') {
+        // 兜底：有些版本只挂到 local scope
+        window.html2pdf = html2pdf;
+        resolve(window.html2pdf);
+      } else {
+        reject('html2pdf 加载失败或未暴露全局变量');
+      }
+    };
+
+    script.onerror = () => reject('html2pdf 加载失败');
+
+    document.head.appendChild(script);
+  });
+}
+
+
+
+// contentScript.js 里加入
+async function exportAllGPTChatsAsPDF() {
+  const turns = document.querySelectorAll('article[data-testid^="conversation-turn-"]');
+  if (turns.length === 0) {
+    alert('没有找到对话记录');
+    return;
+  }
+
+  const container = document.createElement('div');
+
+  // 标题
+  const title = document.createElement('h1');
+  title.innerText = document.title || 'ChatGPT 对话记录导出';
+  title.style = 'text-align: center; margin-bottom: 20px;';
+  container.appendChild(title);
+
+  // 时间
+  const time = document.createElement('div');
+  time.innerText = `导出时间: ${new Date().toLocaleString()}`;
+  time.style = 'text-align: center; margin-bottom: 40px; color: #888;';
+  container.appendChild(time);
+
+  turns.forEach(turn => {
+    const userMsg = turn.querySelector('[data-message-author-role="user"]');
+    const assistantMsg = turn.querySelector('[data-message-author-role="assistant"]');
+
+    if (userMsg) {
+      const userDiv = document.createElement('div');
+      userDiv.innerHTML = `<strong>你：</strong><br>${userMsg.innerHTML}`;
+      userDiv.className = 'user-msg';
+      container.appendChild(userDiv);
+    }
+
+    if (assistantMsg) {
+      const gptDiv = document.createElement('div');
+      gptDiv.innerHTML = `<strong>ChatGPT：</strong><br>${assistantMsg.innerHTML}`;
+      gptDiv.className = 'gpt-msg';
+      container.appendChild(gptDiv);
+    }
+  });
+
+  // 页脚
+  const footer = document.createElement('div');
+  footer.innerText = 'Powered by ChatGPT Booster';
+  footer.style = 'text-align: center; margin-top: 40px; color: #aaa;';
+  container.appendChild(footer);
+
+  await replaceImgWithBase64(container);
+
+  // clear styles
+  container.querySelectorAll('.horzScrollShadows, .tableContainer').forEach(el => {
+    el.style.boxShadow = 'none';
+    el.style.background = 'transparent';
+  });
+
+  applyPDFStyles(container);
+
+  html2pdf().from(container).set({
+    margin: 10,
+    filename: 'chatgpt-conversation.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).save();
+}
+
+function applyPDFStyles(container) {
+  container.style.cssText = `
+    font-family: Inter, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    color: #2e2e2e;
+    line-height: 1.8;
+    max-width: 750px;
+    margin: 0 auto;
+    padding: 30px;
+  `;
+
+  container.querySelectorAll('.user-msg').forEach(el => {
+    el.style.cssText = `
+      margin: 16px 0;
+      padding: 16px;
+      background:rgb(250, 253, 255);
+      border-left: 4px solid #4285f4;
+      border-radius: 6px;
+    `;
+  });
+
+  container.querySelectorAll('.gpt-msg').forEach(el => {
+    el.style.cssText = `
+      margin: 16px 0;
+      padding: 16px;
+      background:rgb(252, 252, 252);
+      border-left: 4px solid #34a853;
+      border-radius: 6px;
+    `;
+  });
+
+  container.querySelectorAll('pre, code').forEach(el => {
+    el.style.cssText = `
+      background: #f6f8fa;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 12px;
+      border-radius: 4px;
+      display: block;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      margin-top: 8px;
+    `;
+  });
+}
+
+
+async function replaceImgWithBase64(container) {
+  const imgElements = container.querySelectorAll('img');
+
+  for (const img of imgElements) {
+    const src = img.src;
+
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+
+      await new Promise(resolve => {
+        reader.onloadend = () => {
+          img.src = reader.result;
+          resolve();
+        };
+      });
+    } catch (e) {
+      console.warn('图片转换失败:', src);
+    }
+  }
+}
+
+
+async function exportSingleTurnAsPDF(turn) {
+  const container = document.createElement('div');
+  
+  const assistantMsg = turn.querySelector('[data-message-author-role="assistant"]');
+  if (!assistantMsg) return;
+
+  container.innerHTML = assistantMsg.innerHTML;
+
+  await replaceImgWithBase64(container); // 保持一致的图片处理
+
+  applyPDFStyles(container); // 如果需要的话
+
+  html2pdf().from(container).set({
+    margin: 10,
+    filename: 'gpt-answer.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).save();
 }

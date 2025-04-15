@@ -25,5 +25,8 @@
     },
     "popup_saved": {
         "message": "已保存最大消息数："
+    },
+    "save_to_pdf_btn_text": {
+        "message": "保存为 PDF"
     }
 }
