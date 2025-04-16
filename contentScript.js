@@ -183,12 +183,10 @@ document.body.addEventListener('click', (e) => {
   }
 
   // 写入剪贴板，这里以双美元符号包裹，代表 Markdown 里的块级公式
-  navigator.clipboard.writeText(`$$ ${latexSource} $$`).then(() => {
+  navigator.clipboard.writeText(`${latexSource}`).then(() => {
     showToast(i18n("latex_copy_success"));
   });
 });
-
-
 
 // ===== 消息折叠功能 =====
 function generateSummary(text, maxLen = 50) {
@@ -315,17 +313,22 @@ function waitForPromptArea(callback) {
 waitForPromptArea((promptArea) => {
   console.log("=== Prompt area found ===");
 
-  // 定义触发词与预设文本（要替换成的完整文本）
-  const trigger = "#textbooktranslation";
-  const presetContent = [
-    "请把这段英文教材内容翻译成中文，要求：关键术语、专有名词、技术词 保留英文",
-    "",
-    "解释、连接、举例 全部中文",
-    "",
-    "保持学术风格，但更容易理解"
-  ].join("\n");
+  // 解析json
+  let triggersMap = {};
 
-  // 辅助函数：将光标移到内容末尾（用于 contenteditable）
+  fetch(chrome.runtime.getURL('storage/prompt.json'))
+    .then(response => response.json())
+    .then(data => {
+      triggersMap = data; // 这里就是 JSON 文件内容解析后的对象
+      console.log('成功解析 triggersMap:', triggersMap);
+      // 接下来就可以使用 triggersMap 了
+    })
+    .catch(error => {
+      console.error('解析 triggers.json 失败:', error);
+    });  
+
+  // ===================== 辅助函数 =====================
+  // 用于将光标移至 contentEditable 的末尾
   function placeCaretAtEnd(el) {
     el.focus();
     if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
@@ -338,21 +341,21 @@ waitForPromptArea((promptArea) => {
     }
   }
 
-  // 辅助函数：显示提示框
+  // 显示提示框
   function showSuggestionBox(message) {
     let suggestionBox = document.getElementById('trigger-suggestion-box');
     if (!suggestionBox) {
       suggestionBox = document.createElement('div');
       suggestionBox.id = 'trigger-suggestion-box';
       suggestionBox.className = 'trigger-suggestion-box';
-      // 改进后的样式
+      // 样式
       suggestionBox.style.position = 'absolute';
-      suggestionBox.style.background = 'rgba(255, 255, 255, 0.95)'; // 半透明白色背景
+      suggestionBox.style.background = 'rgba(255, 255, 255, 0.95)';
       suggestionBox.style.padding = '6px 10px';
       suggestionBox.style.borderRadius = '6px';
       suggestionBox.style.fontSize = '13px';
       suggestionBox.style.color = '#444';
-      suggestionBox.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'; // 柔和阴影
+      suggestionBox.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
       suggestionBox.style.zIndex = '1000';
       // 初始透明度和位移，用于淡入动画
       suggestionBox.style.opacity = '0';
@@ -361,20 +364,21 @@ waitForPromptArea((promptArea) => {
       document.body.appendChild(suggestionBox);
     }
     suggestionBox.innerText = message;
-    // 简单定位在 promptArea 下方
+
+    // 定位在 promptArea 的下方
     const rect = promptArea.getBoundingClientRect();
     suggestionBox.style.top = (rect.bottom + window.scrollY + 5) + 'px';
     suggestionBox.style.left = (rect.left + window.scrollX) + 'px';
     suggestionBox.style.display = 'block';
-    // 使用 requestAnimationFrame 触发淡入动画
+
+    // 触发淡入动画
     requestAnimationFrame(() => {
       suggestionBox.style.opacity = '1';
       suggestionBox.style.transform = 'translateY(0)';
     });
   }
-  
 
-  // 辅助函数：隐藏提示框
+  // 隐藏提示框
   function hideSuggestionBox() {
     const suggestionBox = document.getElementById('trigger-suggestion-box');
     if (suggestionBox) {
@@ -382,35 +386,54 @@ waitForPromptArea((promptArea) => {
     }
   }
 
-  // 辅助函数：判断文本末尾是否包含触发词
-  function isTriggerAtEnd(text, trigger) {
-    return text.trim().endsWith(trigger);
+  // 判断文本末尾是否匹配到（多）触发词中的任意一个
+  // 匹配到了就返回对应的触发词，否则返回 null
+  function findTriggerAtEnd(text) {
+    const trimmed = text.trim();
+    for (const triggerKey in triggersMap) {
+      if (trimmed.endsWith(triggerKey)) {
+        return triggerKey;
+      }
+    }
+    return null;
   }
 
-  // 监听输入事件——每次输入都检测是否在文本末尾出现触发词
+  // ===================== 事件监听 =====================
+  let currentMatchedTrigger = null; // 记录当前匹配到的触发词
+
+  // 监听输入，每次都检查输入末尾是否出现任意触发词
   promptArea.addEventListener("input", () => {
     const currentText = promptArea.innerText;
-    if (isTriggerAtEnd(currentText, trigger)) {
+    currentMatchedTrigger = findTriggerAtEnd(currentText);
+
+    if (currentMatchedTrigger) {
+      // 如果匹配到触发词，则显示提示框
       showSuggestionBox("按下空格将替换为预设文本");
     } else {
+      // 否则隐藏提示框
       hideSuggestionBox();
     }
   });
 
-  // 监听键盘事件，当提示框显示时，根据按键决定是否执行替换
+  // 监听键盘事件——如果提示框出现并按下空格，则执行替换
   promptArea.addEventListener("keydown", (event) => {
     const suggestionBox = document.getElementById('trigger-suggestion-box');
     if (suggestionBox && suggestionBox.style.display === 'block') {
       if (event.key === " ") {
         // 用户按下空格，确认替换
-        event.preventDefault();  // 阻止默认空格行为
-        const fullText = promptArea.innerText;
-        const idx = fullText.lastIndexOf(trigger);
-        if (idx !== -1) {
-          const before = fullText.substring(0, idx);
-          promptArea.innerText = before + presetContent;
-          hideSuggestionBox();
-          placeCaretAtEnd(promptArea);
+        event.preventDefault(); // 阻止默认空格
+        if (currentMatchedTrigger) {
+          const fullText = promptArea.innerText;
+          // 找到末尾触发词的起始位置
+          const idx = fullText.lastIndexOf(currentMatchedTrigger);
+          if (idx !== -1) {
+            // 用预设文本替换触发词
+            const before = fullText.substring(0, idx);
+            // 取出 triggersMap 中的预设文本进行替换
+            promptArea.innerText = before + triggersMap[currentMatchedTrigger];
+            hideSuggestionBox();
+            placeCaretAtEnd(promptArea);
+          }
         }
       } else {
         // 如果按下的不是空格，则取消提示框（不做替换）
@@ -420,6 +443,7 @@ waitForPromptArea((promptArea) => {
   });
 });
 
+// ===== Load from libs =====
 
 function loadHtml2Pdf() {
   return new Promise((resolve, reject) => {
@@ -446,6 +470,44 @@ function loadHtml2Pdf() {
 
     script.onerror = () => reject('html2pdf 加载失败');
 
+    document.head.appendChild(script);
+  });
+}
+
+function loadHtml2Canvas() {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) {
+      resolve(window.html2canvas);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('libs/html2canvas.min.js');
+
+    script.onload = () => {
+      if (window.html2canvas) {
+        console.log('html2canvas loaded');
+        resolve(window.html2canvas);
+      } else {
+        reject('html2canvas 加载失败或未暴露全局变量');
+      }
+    };
+
+    script.onerror = () => reject('html2canvas 加载失败');
+
+    document.head.appendChild(script);
+  }
+  );
+}
+
+function loadOklch2RgbLib() {
+  return new Promise((resolve, reject) => {
+    if (window.oklch2rgbClamped) return resolve(); // 已加载
+
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('libs/oklch2rgb.min.js');
+    script.onload = resolve;
+    script.onerror = reject;
     document.head.appendChild(script);
   });
 }
@@ -509,12 +571,21 @@ async function exportAllGPTChatsAsPDF() {
 
   applyPDFStyles(container);
 
+  if (container.scrollHeight > 15000) {
+    alert("⚠️ 内容过长，部分内容可能无法完整导出，请考虑分批或分页");
+  }
+
   html2pdf().from(container).set({
     margin: 10,
     filename: 'chatgpt-conversation.pdf',
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).save();
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      scrollY: 0
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'] }
+  }).save();  
 }
 
 function applyPDFStyles(container) {
@@ -563,7 +634,6 @@ function applyPDFStyles(container) {
   });
 }
 
-
 async function replaceImgWithBase64(container) {
   const imgElements = container.querySelectorAll('img');
 
@@ -589,23 +659,207 @@ async function replaceImgWithBase64(container) {
   }
 }
 
+(function() {
+  /**
+   * 1. 定义目标回答容器选择器
+   * 根据实际情况修改此选择器，示例中假设该容器包含复制、点赞、踩等按钮
+   */
+  const answerContainerSelector = ".flex.justify-start > div[class*='items-center']";
 
-async function exportSingleTurnAsPDF(turn) {
-  const container = document.createElement('div');
-  
-  const assistantMsg = turn.querySelector('[data-message-author-role="assistant"]');
-  if (!assistantMsg) return;
+  /**
+   * 2. 定义一个函数，用于在指定容器内插入“转录为图片”按钮
+   */
+  function injectImageButton(container) {
+    const modelButtonSpan = [...document.querySelectorAll('span[data-state="closed"]')]
+    .find(span => span.querySelector('button[aria-haspopup="menu"]'));
 
-  container.innerHTML = assistantMsg.innerHTML;
+    const check = container.closest("article")?.querySelector("div.flex.absolute.start-0.end-0.flex.justify-start");
+    if (!check) {
+      return;
+    }
 
-  await replaceImgWithBase64(container); // 保持一致的图片处理
+    if (!modelButtonSpan) {
+      // console.log("模型按钮未找到，跳过插入");
+      return;
+    }
+    if (!modelButtonSpan || modelButtonSpan.previousSibling?.querySelector?.('[data-testid="turn-to-image-button"]')) {
+      // console.log("按钮已存在或模型按钮未找到，跳过插入");
+      return;
+    }
 
-  applyPDFStyles(container); // 如果需要的话
+    // 2. 构建新的按钮 DOM 结构
+    const spanWrapper = document.createElement('span');
+    spanWrapper.setAttribute('data-state', 'closed');
 
-  html2pdf().from(container).set({
-    margin: 10,
-    filename: 'gpt-answer.pdf',
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).save();
+    const btn = document.createElement('button');
+    btn.className = 'text-token-text-secondary hover:bg-token-main-surface-secondary rounded-lg';
+    btn.setAttribute('aria-label', '转录为图片');
+
+    btn.setAttribute('data-testid', 'turn-to-image-button');
+    btn.addEventListener('click', async () => {
+      // 1. 加载 html2canvas 库
+      const html2canvas = await loadHtml2Canvas();
+      if (!html2canvas) {
+        alert("❌ html2canvas 加载失败");
+        return;
+      }
+      const assistantMsg = container.closest('article')?.querySelector('[data-message-author-role="assistant"]');
+    
+      if (!assistantMsg) {
+        alert("❌ 没有找到对应的回答内容");
+        return;
+      }
+    
+      // 克隆 assistant 内容，避免破坏原样式
+      const clone = assistantMsg.cloneNode(true);
+      const wrapper = document.createElement('div');
+      wrapper.style.padding = '20px';
+      wrapper.style.background = 'white';
+      wrapper.style.color = '#333';
+      wrapper.style.fontFamily = 'sans-serif';
+      wrapper.appendChild(clone);
+    
+      document.body.appendChild(wrapper);
+      wrapper.style.position = 'fixed';
+      wrapper.style.top = '-9999px'; // 放到视图外
+      
+      await replaceOklchColors(wrapper);
+
+      if (hasOklchColors(wrapper)) {
+        console.warn('❗ 仍然存在 oklch(...) 样式，可能转换失败');
+      } else {
+        console.log('✅ 所有 oklch(...) 样式已成功替换为 rgb(...)');
+      }
+
+
+      const canvas = await html2canvas(wrapper, {
+        scale: 2,
+        useCORS: true,
+        onclone: doc => replaceOklchColors(doc.body),
+      });    
+    
+      document.body.removeChild(wrapper);
+    
+      // 下载图片
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          alert('❌ 图片生成失败');
+          return;
+        }
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          showToast('✅ 图片已复制到剪贴板');
+        } catch (err) {
+          console.error(err);
+          alert('❌ 无法写入剪贴板，请检查权限或浏览器设置');
+        }
+      }, 'image/png');
+    });  
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'touch:w-[38px] flex h-[30px] w-[30px] items-center justify-center';
+    iconSpan.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+        xmlns="http://www.w3.org/2000/svg" class="icon-md-heavy">
+        <path d="M7 4H9L10 2H14L15 4H17C18.1046 4 19 4.89543 19 6V18C19 19.1046 18.1046 20 17 20H7C5.89543 20 5 19.1046 5 18V6C5 4.89543 5.89543 4 7 4Z" fill="currentColor"></path>
+      </svg>
+    `;
+
+    btn.appendChild(iconSpan);
+    spanWrapper.appendChild(btn);
+
+    // 3. 插入到模型按钮前面
+    modelButtonSpan.insertAdjacentElement('beforebegin', spanWrapper);
+
+    console.log("✅ 已插入『转录为图片』按钮到模型按钮左侧");
+  }
+
+  /**
+   * 4. 使用 MutationObserver 监听文档变化，
+   *    当新的回答容器出现时，为其插入转录成图片的按钮
+   */
+  const observer = new MutationObserver((mutationsList) => {
+    for (const mutation of mutationsList) {
+      if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+        document.querySelectorAll(answerContainerSelector).forEach((container) => {
+          injectImageButton(container);
+        });
+      }
+    }
+  });
+
+  // 处理页面上已有的回答容器
+  document.querySelectorAll(answerContainerSelector).forEach((container) => {
+    injectImageButton(container);
+  });
+
+  // 监听整个文档的变化，确保新出现的回答区域也能被处理
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+})();
+
+
+/* ---------- 1. 解析 & 转换 ---------- */
+function oklchStringToRgb(str) {
+  // okLCH 正则：l  c  h  /a   （l 可以有 %，α 可以选）
+  const re = /oklch\s*\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi;
+
+  return str.replace(re, (_, l, isPct, c, h, a) => {
+    // 1) 归一化 L；C/H 没单位；α 可能是 %
+    let lNum = parseFloat(l);
+    if (isPct) lNum /= 100;
+    const cNum = parseFloat(c);
+    const hNum = parseFloat(h);
+
+    // 2) OKLCH → sRGB
+    const [r, g, b] = oklch2rgbClamped([lNum, cNum, hNum]).map(v =>
+      Math.round(v * 255)
+    );
+
+    // 3) 透明度
+    if (a !== undefined) {
+      let alpha = parseFloat(a);
+      if (String(a).endsWith('%')) alpha /= 100;
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+    return `rgb(${r},${g},${b})`;
+  });
+}
+
+/* ---------- 2. 全属性扫描 ---------- */
+function replaceOklchColors(root = document.body) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  for (let el; (el = walker.nextNode()); ) {
+    const style = getComputedStyle(el);
+    // 遍历计算样式里所有属性名
+    for (const prop of style) {
+      const val = style.getPropertyValue(prop);
+      if (val.includes('oklch(')) {
+        // 把 okLCH 片段逐一替换
+        el.style.setProperty(prop, oklchStringToRgb(val), 'important');
+      }
+    }
+  }
+}
+
+function hasOklchColors(root) {
+  let found = false;
+
+  root.querySelectorAll('*').forEach(el => {
+    const style = getComputedStyle(el);
+
+    if (
+      (style.color && style.color.includes('oklch')) ||
+      (style.backgroundColor && style.backgroundColor.includes('oklch')) ||
+      (style.borderColor && style.borderColor.includes('oklch'))
+    ) {
+      found = true;
+    }
+  });
+
+  return found;
 }

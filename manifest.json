@@ -29,7 +29,10 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*"],
-      "js": ["contentScript.js", "libs/html2pdf.bundle.min.js"]
+      "js": ["contentScript.js", 
+      "libs/html2pdf.bundle.min.js", 
+      "libs/html2canvas.min.js",
+      "libs/oklch2rgb.min.js"]
     }
   ],
 
@@ -38,7 +41,8 @@
       "resources": [
         "icons/*.svg",
         "icons/*.png",
-        "libs/*.js"
+        "libs/*.js",
+        "storage/*.json"
       ],
       "matches": [
         "https://chatgpt.com/*"
