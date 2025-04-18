@@ -1,0 +1,59 @@
+{
+    "auto_hide_btn_text": {
+        "message": "부스터 자동 숨기기"
+    },
+    "latex_copy_success": {
+        "message": "Markdown 수식 복사됨!"
+    },
+    "toggle_hide_text": {
+        "message": "[답변 축소]"
+    },
+    "toggle_show_text": {
+        "message": "[답변 펼치기]"
+    },
+    "popup_title": {
+        "message": "ChatGPT 부스터 설정"
+    },
+    "popup_label_max_msgs": {
+        "message": "최대 표시 메시지 수:"
+    },
+    "popup_placeholder": {
+        "message": "예: 10"
+    },
+    "popup_save": {
+        "message": "저장"
+    },
+    "popup_saved": {
+        "message": "저장된 최대 메시지 수:"
+    },
+    "save_to_pdf_btn_text": {
+        "message": "PDF로 저장"
+    },
+    "trigger_hint_replace_by_space": {
+        "message": "스페이스를 눌러 프리셋 텍스트로 교체"
+    },
+    "no_conversation_found": {
+        "message": "대화가 없습니다!"
+    },
+    "export_title": {
+        "message": "ChatGPT 대화 내보내기"
+    },
+    "export_time": {
+        "message": "내보낸 시간: "
+    },
+    "user_name": {
+        "message": "당신"
+    },
+    "export_too_long": {
+        "message": "내보낸 대화가 너무 깁니다!"
+    },
+    "image_copy_hint": {
+        "message": "이미지로 복사"
+    },
+    "image_copy_failed": {
+        "message": "이미지 복사 실패!"
+    },
+    "image_copy_success": {
+        "message": "이미지가 클립보드에 복사됨!"
+    }
+}

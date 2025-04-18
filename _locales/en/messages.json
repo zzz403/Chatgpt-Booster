@@ -28,5 +28,32 @@
     },
     "save_to_pdf_btn_text": {
         "message": "Save to PDF"
+    },
+    "trigger_hint_replace_by_space": {
+        "message": "Press space to replace with preset text"
+    },
+    "no_conversation_found": {
+        "message": "No conversation found!"
+    },
+    "export_title": {
+        "message": "Export ChatGPT Conversation"
+    },
+    "export_time": {
+        "message": "Exported at: "
+    },
+    "user_name": {
+        "message": "You"
+    },
+    "export_too_long": {
+        "message": "Exported conversation is too long!"
+    },
+    "image_copy_hint": {
+        "message": "Copy as Image"
+    },
+    "image_copy_failed": {
+        "message": "Image copy failed!"
+    },
+    "image_copy_success": {
+        "message": "Image copied to clipboard!"
     }
 }

@@ -1,0 +1,59 @@
+{
+    "auto_hide_btn_text": {
+        "message": "ブースター自動非表示"
+    },
+    "latex_copy_success": {
+        "message": "Markdown数式をコピーしました！"
+    },
+    "toggle_hide_text": {
+        "message": "[返信を折りたたむ]"
+    },
+    "toggle_show_text": {
+        "message": "[返信を展開]"
+    },
+    "popup_title": {
+        "message": "ChatGPTブースター設定"
+    },
+    "popup_label_max_msgs": {
+        "message": "最大表示メッセージ数："
+    },
+    "popup_placeholder": {
+        "message": "例：10"
+    },
+    "popup_save": {
+        "message": "保存"
+    },
+    "popup_saved": {
+        "message": "保存された最大メッセージ数："
+    },
+    "save_to_pdf_btn_text": {
+        "message": "PDFとして保存"
+    },
+    "trigger_hint_replace_by_space": {
+        "message": "スペースを押してプリセットテキストに置き換えます"
+    },
+    "no_conversation_found": {
+        "message": "会話が見つかりません！"
+    },
+    "export_title": {
+        "message": "ChatGPT会話をエクスポート"
+    },
+    "export_time": {
+        "message": "エクスポート時間："
+    },
+    "user_name": {
+        "message": "あなた:"
+    },
+    "export_too_long": {
+        "message": "エクスポートされた会話が長すぎます！"
+    },
+    "image_copy_hint": {
+        "message": "画像としてコピー"
+    },
+    "image_copy_failed": {
+        "message": "画像のコピーに失敗しました！"
+    },
+    "image_copy_success": {
+        "message": "画像をクリップボードにコピーしました！"
+    }
+}

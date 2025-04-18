@@ -4,7 +4,7 @@ const DEFAULT_MAX_MSGS = 10;
 const RESTORE_COUNT = 3;
 let restoredCount = 0;
 
-const i18n = chrome.i18n.getMessage;
+const i18n = chrome.i18n.getMessage.bind(chrome.i18n);
 
 // ===== 样式 =====
 const style = document.createElement("style");
@@ -131,7 +131,7 @@ const observer = new MutationObserver(() => {
   menu.appendChild(booster_start_btn);
   menu.appendChild(save_to_pdf_btn);
 
-  console.log('[Booster] Auto Hide 按钮插入成功！');
+  // console.log('[Booster] Auto Hide 按钮插入成功！');
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
@@ -408,7 +408,7 @@ waitForPromptArea((promptArea) => {
 
     if (currentMatchedTrigger) {
       // 如果匹配到触发词，则显示提示框
-      showSuggestionBox("按下空格将替换为预设文本");
+      showSuggestionBox(i18n("trigger_hint_replace_by_space"));
     } else {
       // 否则隐藏提示框
       hideSuggestionBox();
@@ -518,7 +518,7 @@ function loadOklch2RgbLib() {
 async function exportAllGPTChatsAsPDF() {
   const turns = document.querySelectorAll('article[data-testid^="conversation-turn-"]');
   if (turns.length === 0) {
-    alert('没有找到对话记录');
+    alert(i18n('no_conversation_found'));
     return;
   }
 
@@ -526,13 +526,13 @@ async function exportAllGPTChatsAsPDF() {
 
   // 标题
   const title = document.createElement('h1');
-  title.innerText = document.title || 'ChatGPT 对话记录导出';
+  title.innerText = document.title || i18n('export_title');
   title.style = 'text-align: center; margin-bottom: 20px;';
   container.appendChild(title);
 
   // 时间
   const time = document.createElement('div');
-  time.innerText = `导出时间: ${new Date().toLocaleString()}`;
+  time.innerText = `${i18n('export_time')}: ${new Date().toLocaleString()}`;
   time.style = 'text-align: center; margin-bottom: 40px; color: #888;';
   container.appendChild(time);
 
@@ -542,7 +542,7 @@ async function exportAllGPTChatsAsPDF() {
 
     if (userMsg) {
       const userDiv = document.createElement('div');
-      userDiv.innerHTML = `<strong>你：</strong><br>${userMsg.innerHTML}`;
+      userDiv.innerHTML = `<strong>${i18n('user_name')}：</strong><br>${userMsg.innerHTML}`;
       userDiv.className = 'user-msg';
       container.appendChild(userDiv);
     }
@@ -571,8 +571,25 @@ async function exportAllGPTChatsAsPDF() {
 
   applyPDFStyles(container);
 
-  if (container.scrollHeight > 15000) {
-    alert("⚠️ 内容过长，部分内容可能无法完整导出，请考虑分批或分页");
+  // 添加到页面中（隐藏，不影响布局）
+  const new_container = container.cloneNode(true);
+
+  new_container.style.position = 'fixed';
+  new_container.style.top = '-9999px';
+  new_container.style.opacity = '0';
+  document.body.appendChild(new_container);
+
+  // 等待渲染帧，确保内容撑开
+  await new Promise(requestAnimationFrame);
+
+  // 现在再测量就有了
+  const height = new_container.scrollHeight;
+  console.log("实际渲染高度:", height);
+
+  if (height > 40000) {
+    alert(i18n('export_too_long'));
+    document.body.removeChild(new_container);
+    return;
   }
 
   html2pdf().from(container).set({
@@ -659,58 +676,137 @@ async function replaceImgWithBase64(container) {
   }
 }
 
-(function() {
-  /**
-   * 1. 定义目标回答容器选择器
-   * 根据实际情况修改此选择器，示例中假设该容器包含复制、点赞、踩等按钮
-   */
-  const answerContainerSelector = ".flex.justify-start > div[class*='items-center']";
+function setupImageCopyButton() {
+  const answerSelector = ".flex.justify-start > div[class*='items-center']";
 
-  /**
-   * 2. 定义一个函数，用于在指定容器内插入“转录为图片”按钮
-   */
-  function injectImageButton(container) {
-    const modelButtonSpan = [...document.querySelectorAll('span[data-state="closed"]')]
-    .find(span => span.querySelector('button[aria-haspopup="menu"]'));
+  let globalPopup;
+  function createGlobalPopupIfNeeded() {
+    if (globalPopup) return;
+  
+    globalPopup = document.createElement('div');
+    Object.assign(globalPopup.style, {
+      position: 'absolute',
+      display: 'none',
+      background: '#000',
+      color: '#fff',
+      padding: '6px 12px',
+      borderRadius: '8px',
+      fontSize: '13px',
+      fontWeight: '600',
+      zIndex: 9999,
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+      transition: 'opacity 0.2s ease',
+      lineHeight: '1.8',
+    });
+  
+    // 文字部分
+    const popupText = document.createElement('div');
+    popupText.innerText = i18n('image_copy_hint');
+    globalPopup.appendChild(popupText);
+  
+    // 小箭头直接挂在 globalPopup 上（不是 popupText）
+    const arrow = document.createElement('div');
+    Object.assign(arrow.style, {
+      position: 'absolute',
+      top: '-7px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 0,
+      height: 0,
+      borderLeft: '7px solid transparent',
+      borderRight: '7px solid transparent',
+      borderBottom: '8px solid #000',
+    });
+    globalPopup.appendChild(arrow);
+  
+    // 添加到页面中
+    document.body.appendChild(globalPopup);
+  
+    // 提供方法供动态修改内容
+    globalPopup.setText = (text) => {
+      popupText.innerText = text;
+    };
+  }
+  
+  
 
+  function injectImageButton(container, attempt = 0) {
+    const MAX_ATTEMPTS = 10;
+    const RETRY_DELAY = 1000;
+
+    const article = container.closest("article");
+  
+    const modelBtnSpan = article?.querySelector('span[data-state="closed"] button[aria-haspopup="menu"]')
+    ?.closest('span[data-state="closed"]');
+  
     const check = container.closest("article")?.querySelector("div.flex.absolute.start-0.end-0.flex.justify-start");
-    if (!check) {
+    if (!modelBtnSpan || !check) {
+      if (attempt < MAX_ATTEMPTS) {
+        setTimeout(() => injectImageButton(container, attempt + 1), RETRY_DELAY);
+      }
       return;
     }
-
-    if (!modelButtonSpan) {
-      // console.log("模型按钮未找到，跳过插入");
+  
+    if (modelBtnSpan.previousSibling?.querySelector?.('[data-testid="turn-to-image-button"]')) {
       return;
     }
-    if (!modelButtonSpan || modelButtonSpan.previousSibling?.querySelector?.('[data-testid="turn-to-image-button"]')) {
-      // console.log("按钮已存在或模型按钮未找到，跳过插入");
-      return;
-    }
-
-    // 2. 构建新的按钮 DOM 结构
+  
+    // --- 创建 wrapper + 按钮 ---
     const spanWrapper = document.createElement('span');
     spanWrapper.setAttribute('data-state', 'closed');
-
+    spanWrapper.style.position = 'relative';
+    spanWrapper.style.display = 'inline-block';
+  
     const btn = document.createElement('button');
     btn.className = 'text-token-text-secondary hover:bg-token-main-surface-secondary rounded-lg';
     btn.setAttribute('aria-label', '转录为图片');
-
     btn.setAttribute('data-testid', 'turn-to-image-button');
+  
+    const icon = document.createElement('span');
+    icon.className = 'touch:w-[38px] flex h-[30px] w-[30px] items-center justify-center';
+    const img = document.createElement('img');
+    img.src = chrome.runtime.getURL('icons/copy-image.svg');
+    img.width = 20;
+    img.height = 20;
+    icon.appendChild(img);
+  
+    btn.appendChild(icon);
+    spanWrapper.appendChild(btn);
+  
+    // --- 全局浮层绑定 ---
+    createGlobalPopupIfNeeded();
+  
+    btn.addEventListener('mouseenter', () => {
+      const rect = btn.getBoundingClientRect();
+      globalPopup.style.left = `${rect.left + rect.width / 2}px`;
+      globalPopup.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+      globalPopup.style.transform = 'translateX(-50%)';
+      globalPopup.style.display = 'block';
+      globalPopup.style.opacity = '1';
+    });
+  
+    btn.addEventListener('mouseleave', () => {
+      globalPopup.style.opacity = '0';
+      setTimeout(() => {
+        globalPopup.style.display = 'none';
+      }, 200);
+    });
+    
+
+    // --- 点击触发截图逻辑 ---
     btn.addEventListener('click', async () => {
-      // 1. 加载 html2canvas 库
       const html2canvas = await loadHtml2Canvas();
       if (!html2canvas) {
-        alert("❌ html2canvas 加载失败");
         return;
       }
+
       const assistantMsg = container.closest('article')?.querySelector('[data-message-author-role="assistant"]');
-    
       if (!assistantMsg) {
-        alert("❌ 没有找到对应的回答内容");
         return;
       }
-    
-      // 克隆 assistant 内容，避免破坏原样式
+
       const clone = assistantMsg.cloneNode(true);
       const wrapper = document.createElement('div');
       wrapper.style.padding = '20px';
@@ -718,12 +814,27 @@ async function replaceImgWithBase64(container) {
       wrapper.style.color = '#333';
       wrapper.style.fontFamily = 'sans-serif';
       wrapper.appendChild(clone);
-    
       document.body.appendChild(wrapper);
       wrapper.style.position = 'fixed';
-      wrapper.style.top = '-9999px'; // 放到视图外
-      
+      wrapper.style.top = '-9999px';
+
       await replaceOklchColors(wrapper);
+
+      wrapper.querySelectorAll("table").forEach(table => {
+        table.style.border = "1px solid #ccc";
+        table.style.borderCollapse = "collapse";
+        table.style.background = "white";
+        table.style.boxShadow = "none";
+        table.style.overflow = "visible";
+        table.style.color = "#000";
+      });
+
+      wrapper.querySelectorAll("th, td").forEach(cell => {
+        cell.style.border = "1px solid #ccc";
+        cell.style.padding = "6px 8px";
+        cell.style.background = "white";
+        cell.style.boxShadow = "none";
+      });
 
       if (hasOklchColors(wrapper)) {
         console.warn('❗ 仍然存在 oklch(...) 样式，可能转换失败');
@@ -731,76 +842,49 @@ async function replaceImgWithBase64(container) {
         console.log('✅ 所有 oklch(...) 样式已成功替换为 rgb(...)');
       }
 
-
       const canvas = await html2canvas(wrapper, {
         scale: 2,
         useCORS: true,
         onclone: doc => replaceOklchColors(doc.body),
-      });    
-    
+      });
+
       document.body.removeChild(wrapper);
-    
-      // 下载图片
+
       canvas.toBlob(async (blob) => {
         if (!blob) {
-          alert('❌ 图片生成失败');
+          alert(i18n('image_copy_failed'));
           return;
         }
         try {
           await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob })
           ]);
-          showToast('✅ 图片已复制到剪贴板');
+          showToast('✅' + i18n('image_copy_success'));
         } catch (err) {
           console.error(err);
-          alert('❌ 无法写入剪贴板，请检查权限或浏览器设置');
+          alert(i18n('image_copy_failed'));
         }
       }, 'image/png');
-    });  
+    });
 
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'touch:w-[38px] flex h-[30px] w-[30px] items-center justify-center';
-    iconSpan.innerHTML = `
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-        xmlns="http://www.w3.org/2000/svg" class="icon-md-heavy">
-        <path d="M7 4H9L10 2H14L15 4H17C18.1046 4 19 4.89543 19 6V18C19 19.1046 18.1046 20 17 20H7C5.89543 20 5 19.1046 5 18V6C5 4.89543 5.89543 4 7 4Z" fill="currentColor"></path>
-      </svg>
-    `;
+    if (modelBtnSpan.closest("article") != null) {
+      modelBtnSpan.insertAdjacentElement('beforebegin', spanWrapper);
+    }
 
-    btn.appendChild(iconSpan);
-    spanWrapper.appendChild(btn);
-
-    // 3. 插入到模型按钮前面
-    modelButtonSpan.insertAdjacentElement('beforebegin', spanWrapper);
-
-    console.log("✅ 已插入『转录为图片』按钮到模型按钮左侧");
+    // console.log('转录按钮插入成功！');
   }
 
-  /**
-   * 4. 使用 MutationObserver 监听文档变化，
-   *    当新的回答容器出现时，为其插入转录成图片的按钮
-   */
-  const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-      if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-        document.querySelectorAll(answerContainerSelector).forEach((container) => {
-          injectImageButton(container);
-        });
-      }
-    }
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll(answerSelector).forEach(c => injectImageButton(c));
   });
 
-  // 处理页面上已有的回答容器
-  document.querySelectorAll(answerContainerSelector).forEach((container) => {
-    injectImageButton(container);
-  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  document.querySelectorAll(answerSelector).forEach(c => injectImageButton(c));
+}
 
-  // 监听整个文档的变化，确保新出现的回答区域也能被处理
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
-})();
+setInterval(() => {
+  setupImageCopyButton();
+}, 100);
 
 
 /* ---------- 1. 解析 & 转换 ---------- */

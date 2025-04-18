@@ -28,5 +28,32 @@
     },
     "save_to_pdf_btn_text": {
         "message": "保存为 PDF"
+    },
+    "trigger_hint_replace_by_space": {
+        "message": "按空格键替换为预设文本"
+    },
+    "no_conversation_found": {
+        "message": "未找到对话！"
+    },
+    "export_title": {
+        "message": "导出 ChatGPT 对话"
+    },
+    "export_time": {
+        "message": "导出时间："
+    },
+    "user_name": {
+        "message": "你"
+    },
+    "export_too_long": {
+        "message": "导出对话过长！"
+    },
+    "image_copy_hint": {
+        "message": "复制为图片"
+    },
+    "image_copy_failed": {
+        "message": "图片复制失败！"
+    },
+    "image_copy_success": {
+        "message": "图片已复制到剪贴板！"
     }
 }
