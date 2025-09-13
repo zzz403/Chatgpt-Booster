@@ -61,80 +61,93 @@ function showToast(msg) {
   }, 2000);
 }
 
-// 监听点击三点按钮
-const observer = new MutationObserver(() => {
-  const menu = document.querySelector('div[role="menu"]');
-  if (!menu) return;
+// 监听点击三点按钮 - 优化版本
+const menuObserver = new MutationObserver((mutations) => {
+  // 只处理添加的节点
+  for (const mutation of mutations) {
+    if (mutation.type !== 'childList') continue;
+    
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      
+      // 检查是否是菜单或包含菜单的节点
+      const menu = node.matches('div[role="menu"]') ? node : node.querySelector('div[role="menu"]');
+      if (!menu) continue;
 
-  // 已经加过就不加了
-  if (menu.querySelector('.booster-auto-hide-btn')){
-    console.log('已经插入过按钮，退出');
-    return;
-  };
+      // 已经加过就不加了
+      if (menu.querySelector('.booster-auto-hide-btn')) continue;
 
-  // 只处理聊天三点menu（通过data-testid）
-  const isChatOptionMenu = menu.querySelector('[data-testid="delete-chat-menu-item"]');
-  if (!isChatOptionMenu) return;
+      // 只处理聊天三点menu（通过data-testid）
+      const isChatOptionMenu = menu.querySelector('[data-testid="delete-chat-menu-item"]');
+      if (!isChatOptionMenu) continue;
 
-  const template = menu.querySelector('div[role="menuitem"]');
-  const dividerOrigin = menu.querySelector('div[class*="border"]');
-  if (!template) return;
-  
-  const booster_start_btn = template.cloneNode(true);
+      const template = menu.querySelector('div[role="menuitem"]');
+      const dividerOrigin = menu.querySelector('div[class*="border"]');
+      if (!template) continue;
+      
+      const booster_start_btn = template.cloneNode(true);
 
-  booster_start_btn.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <img src="${chrome.runtime.getURL('icons/bolt.svg')}" 
-          style="width: 18px; height: 18px;">
-      ${i18n('auto_hide_btn_text')}
-    </div>
-  `;
+      booster_start_btn.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="${chrome.runtime.getURL('icons/bolt.svg')}" 
+              style="width: 18px; height: 18px;">
+          ${i18n('auto_hide_btn_text')}
+        </div>
+      `;
 
-  booster_start_btn.classList.add('booster-auto-hide-btn');
+      booster_start_btn.classList.add('booster-auto-hide-btn');
 
-  booster_start_btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    setupAutoHide();
-    showToast('自动隐藏已激活！');
-  });
+      booster_start_btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setupAutoHide();
+        showToast('自动隐藏已激活！');
+      });
 
-  save_to_pdf_btn = template.cloneNode(true);
+      const save_to_pdf_btn = template.cloneNode(true);
 
-  save_to_pdf_btn.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <img src="${chrome.runtime.getURL('icons/pdf.svg')}" 
-          style="width: 18px; height: 18px;">
-      ${i18n('save_to_pdf_btn_text')}
-    </div>
-  `;
+      save_to_pdf_btn.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="${chrome.runtime.getURL('icons/pdf.svg')}" 
+              style="width: 18px; height: 18px;">
+          ${i18n('save_to_pdf_btn_text')}
+        </div>
+      `;
 
-  save_to_pdf_btn.classList.add('booster-save-to-pdf-btn');
+      save_to_pdf_btn.classList.add('booster-save-to-pdf-btn');
 
-  save_to_pdf_btn.addEventListener('click', (e) => {
-    loadHtml2Pdf()
-    .then(() => {
-      exportAllGPTChatsAsPDF();
-      showToast('PDF 导出中...');
-    })
-    .catch(err => {
-      console.error(err);
-      alert('PDF 导出失败！');
-    });
+      save_to_pdf_btn.addEventListener('click', (e) => {
+        loadHtml2Pdf()
+        .then(() => {
+          exportAllGPTChatsAsPDF();
+          showToast('PDF 导出中...');
+        })
+        .catch(err => {
+          console.error(err);
+          alert('PDF 导出失败！');
+        });
+      });
 
-  });
+      if (dividerOrigin) {
+        const divider = dividerOrigin.cloneNode(true);
+        menu.appendChild(divider);
+      }
+      
+      menu.appendChild(booster_start_btn);
+      menu.appendChild(save_to_pdf_btn);
 
-  if (dividerOrigin){
-    const divider = dividerOrigin.cloneNode(true);
-    menu.appendChild(divider);
+      // console.log('[Booster] Auto Hide 按钮插入成功！');
+    }
   }
-  
-  menu.appendChild(booster_start_btn);
-  menu.appendChild(save_to_pdf_btn);
-
-  // console.log('[Booster] Auto Hide 按钮插入成功！');
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+// 使用更精确的观察配置，只监听可能包含菜单的容器
+menuObserver.observe(document.body, { 
+  childList: true, 
+  subtree: true,
+  // 只监听添加操作，忽略属性和文本变化
+  attributes: false,
+  characterData: false
+});
 
 
 
@@ -233,6 +246,47 @@ function addToggleToUserMessages() {
   });
 }
 
+// 初始化折叠功能的MutationObserver
+function initToggleFeature() {
+  console.log('[Booster] 初始化消息折叠功能...');
+  
+  // 立即处理现有消息
+  addToggleToUserMessages();
+  
+  // 监听新消息的添加
+  const toggleObserver = new MutationObserver((mutations) => {
+    let shouldUpdate = false;
+    
+    for (const mutation of mutations) {
+      if (mutation.type !== 'childList') continue;
+      
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && 
+            (node.matches("article[data-testid^='conversation-turn-']") || 
+             node.querySelector("article[data-testid^='conversation-turn-']"))) {
+          shouldUpdate = true;
+          break;
+        }
+      }
+      if (shouldUpdate) break;
+    }
+    
+    if (shouldUpdate) {
+      addToggleToUserMessages();
+    }
+  });
+
+  toggleObserver.observe(document.body, { 
+    childList: true, 
+    subtree: true,
+    attributes: false,
+    characterData: false
+  });
+}
+
+// 页面加载后立即启用折叠功能
+initToggleFeature();
+
 // ===== 自动隐藏功能 =====
 function setupAutoHide() {
   chrome.storage.sync.get(["maxMsgs"], (res) => {
@@ -240,10 +294,35 @@ function setupAutoHide() {
     const mainContainer = document.querySelector('main#main') || document.querySelector('main') || document.body;
     const scrollContainer = mainContainer.querySelector('[class*="overflow-y-auto"]') || mainContainer;
 
+    // 优化的hideOldMessages函数，添加提前终止和缓存
+    let messageCache = null;
+    let cacheTime = 0;
+    const CACHE_DURATION = 1000; // 1秒缓存
+
     const hideOldMessages = () => {
+      const now = Date.now();
+      
+      // 使用缓存减少DOM查询
+      if (messageCache && (now - cacheTime) < CACHE_DURATION) {
+        const messages = messageCache;
+        const realMaxMsgs = maxMsgs + restoredCount;
+        const visibleMsgs = messages.filter(m => !m.classList.contains('booster-hidden'));
+
+        if (messages.length > realMaxMsgs) {
+          for (let i = 0; i < visibleMsgs.length - realMaxMsgs; i++) {
+            visibleMsgs[i].classList.add('booster-auto-hidden', 'booster-hidden');
+          }
+        }
+        return;
+      }
+
+      // 更新缓存
       const messages = document.querySelectorAll("article[data-testid^='conversation-turn-']");
+      messageCache = [...messages];
+      cacheTime = now;
+
       const realMaxMsgs = maxMsgs + restoredCount;
-      const visibleMsgs = [...messages].filter(m => !m.classList.contains('booster-hidden'));
+      const visibleMsgs = messageCache.filter(m => !m.classList.contains('booster-hidden'));
 
       if (messages.length > realMaxMsgs) {
         for (let i = 0; i < visibleMsgs.length - realMaxMsgs; i++) {
@@ -254,12 +333,62 @@ function setupAutoHide() {
 
     hideOldMessages();
 
-    new MutationObserver(() => {
-      hideOldMessages();
-      addToggleToUserMessages();
-    }).observe(document.body, { childList: true, subtree: true });
+    // 使用更智能的MutationObserver
+    const conversationObserver = new MutationObserver((mutations) => {
+      let shouldUpdate = false;
+      
+      // 只检查添加的节点中是否包含消息
+      for (const mutation of mutations) {
+        if (mutation.type !== 'childList') continue;
+        
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE && 
+              (node.matches("article[data-testid^='conversation-turn-']") || 
+               node.querySelector("article[data-testid^='conversation-turn-']"))) {
+            shouldUpdate = true;
+            break;
+          }
+        }
+        if (shouldUpdate) break;
+      }
+      
+      if (shouldUpdate) {
+        messageCache = null; // 清除缓存
+        hideOldMessages();
+        // 折叠功能现在有独立的观察器，无需在这里重复调用
+      }
+    });
+
+    conversationObserver.observe(document.body, { 
+      childList: true, 
+      subtree: true,
+      attributes: false,
+      characterData: false
+    });
 
     scrollContainer.addEventListener('scroll', () => {
+          // 节流函数
+    function throttle(func, delay) {
+      let timeoutId;
+      let lastExecTime = 0;
+      return function (...args) {
+        const currentTime = Date.now();
+        
+        if (currentTime - lastExecTime > delay) {
+          func.apply(this, args);
+          lastExecTime = currentTime;
+        } else {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            func.apply(this, args);
+            lastExecTime = Date.now();
+          }, delay - (currentTime - lastExecTime));
+        }
+      };
+    }
+
+    // 优化后的滚动处理函数
+    const handleScroll = throttle(() => {
       // 当滚动到距离顶部较近时触发
       if (scrollContainer.scrollTop <= 100) {
         // 先检查是否还有隐藏内容
@@ -270,7 +399,7 @@ function setupAutoHide() {
         const restoreNum = Math.min(RESTORE_COUNT, hidden.length);
         if (restoreNum <= 0) return; // 如果没有需要恢复的，也退出
 
-        // 此处选择“锚点”为第一个仍然可见的消息（也可以根据实际需要选择其他锚点）
+        // 此处选择"锚点"为第一个仍然可见的消息（也可以根据实际需要选择其他锚点）
         const anchor = [...document.querySelectorAll("article[data-testid^='conversation-turn-']")]
                          .find(m => !m.classList.contains('booster-hidden'));
 
@@ -287,6 +416,9 @@ function setupAutoHide() {
           }, 0);
         }
       }
+    }, 150); // 150ms 节流
+
+    scrollContainer.addEventListener('scroll', handleScroll);
     });
   });
 }
@@ -401,8 +533,17 @@ waitForPromptArea((promptArea) => {
   // ===================== 事件监听 =====================
   let currentMatchedTrigger = null; // 记录当前匹配到的触发词
 
-  // 监听输入，每次都检查输入末尾是否出现任意触发词
-  promptArea.addEventListener("input", () => {
+  // 防抖函数
+  function debounce(func, delay) {
+    let timeoutId;
+    return function (...args) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+  }
+
+  // 优化后的输入处理函数
+  const handleInput = debounce(() => {
     const currentText = promptArea.innerText;
     currentMatchedTrigger = findTriggerAtEnd(currentText);
 
@@ -413,7 +554,10 @@ waitForPromptArea((promptArea) => {
       // 否则隐藏提示框
       hideSuggestionBox();
     }
-  });
+  }, 200); // 200ms 防抖
+
+  // 监听输入，每次都检查输入末尾是否出现任意触发词
+  promptArea.addEventListener("input", handleInput);
 
   // 监听键盘事件——如果提示框出现并按下空格，则执行替换
   promptArea.addEventListener("keydown", (event) => {
@@ -677,7 +821,7 @@ async function replaceImgWithBase64(container) {
 }
 
 function setupImageCopyButton() {
-  const answerSelector = ".flex.justify-start > div[class*='items-center']";
+  console.log('[Booster] 开始设置图片复制按钮功能...');
 
   let globalPopup;
   function createGlobalPopupIfNeeded() {
@@ -729,6 +873,28 @@ function setupImageCopyButton() {
       popupText.innerText = text;
     };
   }
+
+  // 更通用的查找函数，匹配新的DOM结构
+  function findActionContainers() {
+    const containers = [];
+    
+    // 查找包含操作按钮的容器
+    document.querySelectorAll('div.flex').forEach(div => {
+      // 检查是否包含复制按钮等特征
+      if (div.querySelector('[data-testid="copy-turn-action-button"]') ||
+          div.querySelector('[aria-label="Copy"]')) {
+        // 找到这个div的父容器
+        const parentContainer = div.closest('.flex.min-h-\\[46px\\].justify-start') || 
+                              div.closest('div[class*="min-h-"][class*="justify-start"]') ||
+                              div.parentElement;
+        if (parentContainer && !containers.includes(parentContainer)) {
+          containers.push(parentContainer);
+        }
+      }
+    });
+    
+    return containers;
+  }
   
   
 
@@ -737,43 +903,55 @@ function setupImageCopyButton() {
     const RETRY_DELAY = 1000;
 
     const article = container.closest("article");
-  
-    const modelBtnSpan = article?.querySelector('span[data-state="closed"] button[aria-haspopup="menu"]')
-    ?.closest('span[data-state="closed"]');
-  
-    const check = container.closest("article")?.querySelector("div.flex.absolute.start-0.end-0.flex.justify-start");
-    if (!modelBtnSpan || !check) {
+    
+    // 查找按钮容器 - 更灵活的查找方式
+    let buttonContainer = container.querySelector('[data-testid="copy-turn-action-button"]')?.parentElement;
+    
+    if (!buttonContainer) {
+      // 备用查找方式
+      buttonContainer = container.querySelector('div[class*="flex"][class*="flex-wrap"][class*="items-center"]') ||
+                       container.querySelector('div[class*="flex"][class*="items-center"]') ||
+                       container.querySelector('button[aria-label="Copy"]')?.parentElement;
+    }
+    
+    console.log('[Booster] 查找按钮容器:', {
+      container: container,
+      article: !!article,
+      buttonContainer: !!buttonContainer,
+      attempt: attempt
+    });
+    
+    if (!buttonContainer || !article) {
       if (attempt < MAX_ATTEMPTS) {
         setTimeout(() => injectImageButton(container, attempt + 1), RETRY_DELAY);
       }
       return;
     }
   
-    if (modelBtnSpan.previousSibling?.querySelector?.('[data-testid="turn-to-image-button"]')) {
+    // 检查是否已经注入过按钮
+    if (buttonContainer.querySelector('[data-testid="turn-to-image-button"]')) {
+      console.log('[Booster] 按钮已存在，跳过');
       return;
     }
   
-    // --- 创建 wrapper + 按钮 ---
-    const spanWrapper = document.createElement('span');
-    spanWrapper.setAttribute('data-state', 'closed');
-    spanWrapper.style.position = 'relative';
-    spanWrapper.style.display = 'inline-block';
-  
+    console.log('[Booster] 开始注入图片复制按钮...');
+    
+    // --- 创建按钮 ---
     const btn = document.createElement('button');
-    btn.className = 'text-token-text-secondary hover:bg-token-main-surface-secondary rounded-lg';
+    btn.className = 'text-token-text-secondary hover:bg-token-bg-secondary rounded-lg';
     btn.setAttribute('aria-label', '转录为图片');
     btn.setAttribute('data-testid', 'turn-to-image-button');
   
-    const icon = document.createElement('span');
-    icon.className = 'touch:w-[38px] flex h-[30px] w-[30px] items-center justify-center';
+    // 创建按钮内容，匹配其他按钮的结构
+    const span = document.createElement('span');
+    span.className = 'flex items-center justify-center touch:w-10 h-8 w-8';
+    
     const img = document.createElement('img');
     img.src = chrome.runtime.getURL('icons/copy-image.svg');
     img.width = 20;
     img.height = 20;
-    icon.appendChild(img);
-  
-    btn.appendChild(icon);
-    spanWrapper.appendChild(btn);
+    span.appendChild(img);
+    btn.appendChild(span);
   
     // --- 全局浮层绑定 ---
     createGlobalPopupIfNeeded();
@@ -867,24 +1045,49 @@ function setupImageCopyButton() {
       }, 'image/png');
     });
 
-    if (modelBtnSpan.closest("article") != null) {
-      modelBtnSpan.insertAdjacentElement('beforebegin', spanWrapper);
-    }
+    // 将按钮插入到按钮容器中
+    buttonContainer.appendChild(btn);
 
-    // console.log('转录按钮插入成功！');
+    console.log('[Booster] 图片复制按钮注入成功！');
   }
 
-  const observer = new MutationObserver(() => {
-    document.querySelectorAll(answerSelector).forEach(c => injectImageButton(c));
+  const observer = new MutationObserver((mutations) => {
+    console.log('[Booster] DOM变化检测到，检查是否需要注入按钮...');
+    
+    // 优化：只处理添加的节点
+    for (const mutation of mutations) {
+      if (mutation.type !== 'childList') continue;
+      
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        
+        // 检查新添加的节点是否包含操作按钮
+        if (node.querySelector && (
+          node.querySelector('[data-testid="copy-turn-action-button"]') ||
+          node.querySelector('[aria-label="Copy"]')
+        )) {
+          const containers = findActionContainers();
+          containers.forEach(c => injectImageButton(c));
+          break;
+        }
+      }
+    }
   });
 
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  document.querySelectorAll(answerSelector).forEach(c => injectImageButton(c));
+  observer.observe(document.documentElement, { 
+    childList: true, 
+    subtree: true,
+    attributes: false,
+    characterData: false
+  });
+  
+  // 立即处理现有的容器
+  const existingContainers = findActionContainers();
+  console.log('[Booster] 找到现有容器数量:', existingContainers.length);
+  existingContainers.forEach(c => injectImageButton(c));
 }
 
-setInterval(() => {
-  setupImageCopyButton();
-}, 100);
+// 图片复制功能已暂时移除
 
 
 /* ---------- 1. 解析 & 转换 ---------- */
